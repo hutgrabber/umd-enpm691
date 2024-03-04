@@ -1,0 +1,1 @@
+#define VALID_PASSWD "Pass12345"
