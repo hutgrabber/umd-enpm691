@@ -6,7 +6,7 @@ import binascii, array
 from textwrap import wrap
 
 # Running GDB with ASLR 'ON'
-
+# Courtsey of Kenneth Miltenberger <3
 def start(argv=[], *a, **kw):
     if pwn.args.GDB: 
         return pwn.gdb.debug([binPath], gdbscript=gdbscript, *a, **kw, aslr=True)
